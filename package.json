@@ -8,7 +8,7 @@
     "prettier": "prettier",
     "prettier:check": "prettier \"**/*.{ts,tsx,js,scss,svelte}\" --check --plugin prettier-plugin-svelte",
     "prettier:fix": "prettier \"**/*.{ts,tsx,js,scss,svelte}\" --write --plugin prettier-plugin-svelte",
-    "start": "sirv public --no-clear"
+    "start": "sirv public --no-clear --dev --host 0.0.0.0"
   },
   "devDependencies": {
     "@beyonk/svelte-mapbox": "^8.1.4",
@@ -42,7 +42,6 @@
     "typescript": "^4.8.4"
   },
   "dependencies": {
-    "google-spreadsheet": "^3.2.0",
     "mapbox-gl": "^2.7.0",
     "sirv-cli": "^2.0.0",
     "underscore": "^1.13.2",
