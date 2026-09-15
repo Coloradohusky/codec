@@ -13,6 +13,8 @@
     seek_playback,
     set_playback_bounds,
   } from "../../stores/playback";
+  import TimelineEditor from "./TimelineEditor.svelte";
+  import { editor_store, event_time_column } from "../../stores/editor";
   import { onMount } from "svelte";
 
   let videos, items, container, main_timeline, timeBegin, timeEnd;
@@ -35,6 +37,24 @@
 
   $: if (main_timeline && $playback_store.time !== null) {
     main_timeline.setCustomTime(new Date($playback_store.time), "current_time_line");
+  }
+
+  $: if (main_timeline) {
+    main_timeline.setOptions({ editable: { updateTime: $editor_store.editing && !$editor_store.saving, add: false, remove: false, updateGroup: false } });
+  }
+
+  function align_video(item, callback, commit) {
+    if (!$editor_store.editing || $editor_store.saving) return callback(null);
+    const original = $media_store_filtered[item.id];
+    const start = +snap_time(item.start);
+    item.start = new Date(start);
+    item.end = new Date(start + (+original.end - +original.start));
+    callback(item);
+    if (commit) {
+      const rows = $editor_store.draft.media;
+      const row = rows.findIndex((record, i) => i > 0 && record[rows[0].indexOf("UAR")] === item.id);
+      editor_store.move("media", row, rows[0].indexOf($platform_config_store["Title of column used for chronolocation"]), start);
+    }
   }
 
   function update_timeline_clicked_hovered() {
@@ -121,9 +141,7 @@
     $events_store.forEach((el) => {
       main_timeline?.addCustomTime(el.start, el.id);
       main_timeline?.setCustomTimeTitle("", el.id);
-      main_timeline?.customTimes[
-        main_timeline?.customTimes.length - 1
-      ].hammer.off("panstart panmove panend");
+
     });
   }
 
@@ -140,6 +158,8 @@
     // Configuration for the Timeline
     var options = {
       snap: snap_time,
+      onMoving: (item, callback) => align_video(item, callback, false),
+      onMove: (item, callback) => align_video(item, callback, true),
       width: "100%",
       height: "100%",
       start: timeBegin, // set the timeline start time
@@ -177,6 +197,7 @@
       // properties.item is the Timeline id of the object
       // ie in this case defined to be the medium UAR
       let UAR = properties.item;
+      if ($editor_store.editing) return;
       if (UAR) {
         if ($ui_store.media_in_view.includes(UAR)) {
           $ui_store.media_in_view = $ui_store.media_in_view.filter(
@@ -214,7 +235,18 @@
     );
 
     main_timeline.on("timechange", (properties) => {
-      if (properties.id === "current_time_line") seek_playback(+snap_time(properties.time));
+      if (properties.id === "current_time_line") {
+        seek_playback(+snap_time(properties.time));
+      } else if (!$editor_store.editing || $editor_store.saving) {
+        const event = $events_store.find((event) => event.id === properties.id);
+        if (event) main_timeline.setCustomTime(event.start, event.id);
+      }
+    });
+
+    main_timeline.on("timechanged", (properties) => {
+      if (properties.id === "current_time_line" || !$editor_store.editing || $editor_store.saving) return;
+      const row = $events_store.findIndex((event) => event.id === properties.id) + 1;
+      editor_store.move("events", row, event_time_column($editor_store.draft.events), +snap_time(properties.time));
     });
 
     main_timeline.on("mouseOver", (properties) => {
@@ -274,7 +306,7 @@
     let text = document.getElementById("eventDescription");
     if (properties.customTime !== "current_time_line") {
       element.style.display = "block";
-      text.innerHTML = $events_store[id].description;
+      text.textContent = $events_store[id]?.description || "";
     }
   }
 
@@ -293,6 +325,7 @@
 />
 
 <div id="timeline_container">
+  <TimelineEditor />
   <style>
     .vis-panel.vis-bottom,
     .vis-panel.vis-center,
@@ -318,6 +351,10 @@
       .vis-time-axis .vis-grid.vis-minor,
       .vis-time-axis .vis-grid.vis-major {
         border-color: rgb(39, 39, 39);
+      }
+
+      .vis-drag-left, .vis-drag-right {
+        display: none !important;
       }
 
       .vis-item {

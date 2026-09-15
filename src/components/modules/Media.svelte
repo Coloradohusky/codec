@@ -6,6 +6,7 @@
     play_playback,
     pause_playback,
   } from "../../stores/playback";
+  import { editor_store } from "../../stores/editor";
   import Module from "./Module.svelte";
 
   $: {
@@ -20,7 +21,7 @@
 {#if $ui_store.media_in_view.length && $ui_store.modules_in_view.includes("media")}
   <div class="playback_controls">
     <button
-      disabled={$playback_store.time === null}
+      disabled={$playback_store.time === null || $editor_store.editing || $editor_store.saving}
       on:click={() => $playback_store.playing ? pause_playback() : play_playback()}
     >{$playback_store.playing ? "Pause feeds" : "Play feeds"}</button>
     <span>{ $playback_store.time === null

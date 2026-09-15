@@ -7,3 +7,7 @@ TODO.md
 
 # Local Netlify folder
 .netlify
+
+# Local editor recovery files
+/.codec-save-journal.json
+/public/data/*.json.tmp

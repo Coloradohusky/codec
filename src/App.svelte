@@ -1,5 +1,6 @@
 <script>
   import { onMount } from "svelte";
+  import { editor_store } from "./stores/editor";
   import { throttle } from "underscore";
   import LocalMediaInput from "./components/LocalMediaInput.svelte";
   import Topbar from "./components/topbar/Topbar.svelte";
@@ -30,15 +31,26 @@
   }, 500);
 
   onMount(() => {
-    const fetch_interval = setInterval(fetch_google_sheet_data, 10000);
+    const fetch_interval = setInterval(() => {
+      fetch_google_sheet_data().catch((error) => console.warn("Data refresh failed", error));
+    }, 10000);
     return () => {
       clearInterval(fetch_interval);
     };
   });
 
+  let processing_version = 0;
+  $: if ($editor_store.draft && $platform_config_store["Source of media files"]) {
+    process_event_sheet_response($editor_store.draft.events);
+    // Reprocess local files when the user selects them, too.
+    process_video_sheet_response($editor_store.draft.media, $local_file_store);
+  }
+
   async function fetch_google_sheet_data() {
+    if ($editor_store.saving) return;
+    const epoch = $editor_store.epoch;
     const loadJson = async (url) => {
-      const res = await fetch(url);
+      const res = await fetch(url, { cache: "no-store" });
   
       if (!res.ok) {
         throw new Error(`Failed to load ${url}: ${res.status}`);
@@ -50,13 +62,18 @@
     const platform_config = await loadJson("/data/platformconfig.json");
     $platform_config_store = platform_config;
   
-    const [media, events] = await Promise.all([
-      loadJson("/data/media.json"),
-      loadJson("/data/events.json"),
-    ]);
-  
-    await process_video_sheet_response(media);
-    process_event_sheet_response(events);
+    const response = await fetch("/api/data", { cache: "no-store" });
+    if (response.ok && response.headers.get("content-type")?.includes("application/json")) {
+      editor_store.receive(await response.json(), epoch);
+    } else if (response.status === 404 || response.ok) {
+      // Static hosting can still display the platform and keep browser drafts.
+      const [media, events] = await Promise.all([
+        loadJson("/data/media.json"), loadJson("/data/events.json"),
+      ]);
+      editor_store.receive({ files: { media, events }, revision: null }, epoch);
+    } else {
+      throw new Error("Could not load project data.");
+    }
   }
 
   function process_event_sheet_response(rows) {
@@ -157,7 +174,8 @@
     return `${time}.${String(milliseconds % 1000).padStart(3, "0")}`;
   }
 
-  async function process_video_sheet_response(rows) {
+  async function process_video_sheet_response(rows, local_files) {
+    const version = ++processing_version;
     // first row of table is column names
     const column_names = rows[0];
     // create array to feed data as being processed
@@ -216,7 +234,7 @@
           const start_value =
             video[$platform_config_store["Title of column used for chronolocation"]];
           const source = $platform_config_store["Source of media files"].includes("local")
-            ? $local_file_store[video.UAR]
+            ? local_files[video.UAR]
             : video.url;
 
           // Never use the manually entered duration, even if metadata is unavailable.
@@ -270,7 +288,7 @@
       }),
     );
 
-    if (JSON.stringify($media_store) !== JSON.stringify(new_videos)) {
+    if (version === processing_version && JSON.stringify($media_store) !== JSON.stringify(new_videos)) {
       $media_store = new_videos;
     }
   }
@@ -281,6 +299,7 @@
     const userTimezoneOffset = datetimeobj.getTimezoneOffset() * 60000;
     return new Date(datetimeobj.getTime() - userTimezoneOffset);
   }
+  const initial_load = fetch_google_sheet_data();
 </script>
 
 <svelte:window on:resize={handleWindowResize} />
@@ -299,7 +318,7 @@
     ? `var(--filtermenu-size)`
     : `0`} "
 >
-  {#await fetch_google_sheet_data()}
+  {#await initial_load}
     <div class="modal_container">
       <div class="box modal_content text_level2">
         fetching initial data from the spreadsheet...

@@ -240,3 +240,21 @@ Open feeds by selecting their timeline items, then use **Play feeds / Pause feed
 Feeds show ?No footage at this time? outside their recording window. Newly opened feeds join the current time. Playback stops at the configured timeline end or when all feeds are closed. Videos stay muted and use the shared controls. A buffering feed catches up to the shared time when it can; other feeds continue. Drift correction is approximate (150 ms tolerance), not frame-accurate synchronization.
 
 The red marker moves freely by default. Hold **Shift** while dragging the marker or timeline to snap to whole seconds. Playback updates on browser animation frames for smoother marker motion.
+
+### Editing timeline alignment
+
+Run `npm run dev` and open **http://localhost:8080**. The development build starts the local Node server; after a build, `npm start` serves the same editor. Restart an already-running development server after updating this version.
+
+- Click **Edit timeline** to pause playback and enable dragging.
+- Drag a video horizontally to move its start and end together, preserving its file duration. Drag an event marker to change its timestamp. Hold **Shift** to snap to whole seconds.
+- Choose a record in the editor to enter a timestamp with milliseconds or nudge it by 1, 10, or 100 ms.
+- **Undo / Redo** tracks each completed drag or applied timestamp change. Up to 100 changes are retained.
+- **Finish editing** lets you preview synchronized playback using the draft without saving it.
+- **Save** writes timestamps directly to `public/data/media.json` and `public/data/events.json`. No export is needed.
+- **Discard** reloads the current files from disk and clears draft history.
+
+Unsaved drafts and their history are stored in this browser's local storage and restored after reload. Automatic refresh does not replace an active draft. Keep the same browser profile and localhost address to recover your draft. If browser storage is unavailable, the editor shows a warning and the draft remains in memory.
+
+Save checks the file revision and refuses to overwrite external changes. Failed saves keep the draft. The local server validates timestamp-only changes, stages file replacements, and uses a recovery journal to roll back incomplete two-file saves. It listens on all IPv4 interfaces, matching the original development server, so you can also use `http://<your-Tailscale-IP>:8080`. Host validation accepts localhost and the interface IP used for the connection; saves retain same-origin checks. Devices that can reach this server can edit project timestamps. Set `HOST=127.0.0.1` to restrict it to localhost. Static/Netlify deployments can display data and hold drafts, but writing project files requires this local server.
+
+Run `npm test` for the editor persistence, save endpoint, and playback tests. The Node server and tests require a modern Node version (Node 18 or later) and add no runtime dependencies.
