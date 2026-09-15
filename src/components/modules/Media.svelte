@@ -26,7 +26,7 @@
     <span>{ $playback_store.time === null
       ? ""
       : new Date($playback_store.time).toISOString().slice(0, 23).replace("T", " ") }</span>
-    <span>Drag the timeline or its red marker to seek all feeds.</span>
+    <span>Drag to seek all feeds. Hold Shift to snap to whole seconds.</span>
   </div>
 {/if}
 

@@ -37,6 +37,7 @@ function tick() {
     pause_playback();
   } else {
     publish({ time: Math.round(time) });
+    timer = requestAnimationFrame(tick);
   }
 }
 
@@ -45,11 +46,11 @@ export function play_playback() {
   anchor_time = state.time;
   anchor_clock = performance.now();
   publish({ playing: true });
-  timer = setInterval(tick, 50);
+  timer = requestAnimationFrame(tick);
 }
 
 export function pause_playback() {
-  clearInterval(timer);
+  cancelAnimationFrame(timer);
   if (state.playing) {
     const time = Math.min(end, anchor_time + performance.now() - anchor_clock);
     publish({ time: Math.round(time), playing: false });

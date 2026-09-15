@@ -15,14 +15,14 @@ function clock() {
       return { set: (value) => state = value };
     },
     performance: { now: () => now },
-    setInterval: (fn) => { callback = fn; return 1; },
-    clearInterval: () => { callback = null; },
+    requestAnimationFrame: (fn) => { callback = fn; return 1; },
+    cancelAnimationFrame: () => { callback = null; },
   });
   vm.runInContext(read("src/stores/playback.js")
     .replace(/import[^;]+;/, "").replace(/export /g, ""), context);
   return {
     run: (code) => vm.runInContext(code, context),
-    advance: (milliseconds) => { now += milliseconds; callback?.(); },
+    advance: (milliseconds) => { now += milliseconds; const frame = callback; callback = null; frame?.(); },
     state: () => state,
     running: () => Boolean(callback),
   };
@@ -129,4 +129,18 @@ test("feeds with different Start values align to the same absolute time", () => 
   second.sync(6125, false, 1);
   assert.equal(first.element.currentTime, 5.125);
   assert.equal(second.element.currentTime, 3.125);
+});
+
+test("marker dragging is unsnapped by default and Shift snaps to seconds", () => {
+  const source = read("src/components/modules/Timeline.svelte");
+  const start = source.indexOf("  function snap_time");
+  const finish = source.indexOf("\n  }", start) + 4;
+  const context = vm.createContext({ snap_to_seconds: false });
+  vm.runInContext(source.slice(start, finish), context);
+  assert.equal(vm.runInContext("+snap_time(new Date(6125))", context), 6125);
+  context.snap_to_seconds = true;
+  assert.equal(vm.runInContext("+snap_time(new Date(6125))", context), 6000);
+  assert.equal(vm.runInContext("+snap_time(new Date(6750))", context), 7000);
+  context.snap_to_seconds = false;
+  assert.equal(vm.runInContext("+snap_time(new Date(6750))", context), 6750);
 });

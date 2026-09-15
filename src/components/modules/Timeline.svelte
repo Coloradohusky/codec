@@ -16,6 +16,11 @@
   import { onMount } from "svelte";
 
   let videos, items, container, main_timeline, timeBegin, timeEnd;
+  let snap_to_seconds = false;
+
+  function snap_time(date) {
+    return snap_to_seconds ? Math.round(+date / 1000) * 1000 : date;
+  }
 
   $: {
     timeBegin = localtoUTCdatetimeobj(
@@ -134,6 +139,7 @@
     // creates main timeline vis timeline object
     // Configuration for the Timeline
     var options = {
+      snap: snap_time,
       width: "100%",
       height: "100%",
       start: timeBegin, // set the timeline start time
@@ -208,7 +214,7 @@
     );
 
     main_timeline.on("timechange", (properties) => {
-      if (properties.id === "current_time_line") seek_playback(properties.time.getTime());
+      if (properties.id === "current_time_line") seek_playback(+snap_time(properties.time));
     });
 
     main_timeline.on("mouseOver", (properties) => {
@@ -235,7 +241,7 @@
   });
 
   function updateCurrentTimeToMatchTimeline(properties) {
-    seek_playback((+properties.start + +properties.end) / 2);
+    seek_playback(+snap_time((+properties.start + +properties.end) / 2));
   }
 
   function date2month_day(date) {
@@ -279,6 +285,12 @@
     return new Date(datetimeobj.getTime() - userTimezoneOffset);
   }
 </script>
+
+<svelte:window
+  on:keydown={(event) => snap_to_seconds = event.shiftKey}
+  on:keyup={(event) => snap_to_seconds = event.shiftKey}
+  on:blur={() => snap_to_seconds = false}
+/>
 
 <div id="timeline_container">
   <style>

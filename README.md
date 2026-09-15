@@ -238,3 +238,5 @@ Use `YYYY-MM-DDTHH:mm:ss.SSS` for timeline bounds, media `Start` values, and eve
 Open feeds by selecting their timeline items, then use **Play feeds / Pause feeds** above the videos. All open videos follow a shared clock using their `Start` timestamps: a feed starting at `09:00:00.125` seeks to `5.000` seconds when the shared time is `09:00:05.125`. Drag or zoom the timeline to seek to the center of its window, or drag the red time marker. The marker follows the shared clock during playback.
 
 Feeds show ?No footage at this time? outside their recording window. Newly opened feeds join the current time. Playback stops at the configured timeline end or when all feeds are closed. Videos stay muted and use the shared controls. A buffering feed catches up to the shared time when it can; other feeds continue. Drift correction is approximate (150 ms tolerance), not frame-accurate synchronization.
+
+The red marker moves freely by default. Hold **Shift** while dragging the marker or timeline to snap to whole seconds. Playback updates on browser animation frames for smoother marker motion.
