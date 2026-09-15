@@ -67,13 +67,13 @@ Codec expects a googlesheet with the following characteristics:
 - **Map start latitude**: the center latitude where the map loads, in decimal format e.g. 40.806
 - **Map start longitude**: the center longitude where the map loads, in decimal format e.g. -73.920
 - **Map start zoom**: the initial zoom level where the map loads, in decimal format e.g. 16
-- **Timeline begin datetime**: the date and time when the timeline begins, in YYYY-MM-DD HH-MM-SS format e.g. 2020-06-04 19:56:00
-- **Timeline end datetime**: the date and time when the timeline ends, in YYYY-MM-DD HH-MM-SS format e.g. 2020-06-04 20:06:00
+- **Timeline begin datetime**: the date and time when the timeline begins, in `YYYY-MM-DDTHH:mm:ss.SSS` format e.g. `2020-06-04T19:56:00.000`
+- **Timeline end datetime**: the date and time when the timeline ends, in `YYYY-MM-DDTHH:mm:ss.SSS` format e.g. `2020-06-04T20:06:00.000`
 - **Source of media files**: where to load the media files from, either 'local' to prompt the user to select them from their machine or 'url' to indicate the files should be loaded from their link
 - **Title of tab with media assets**: the name of the tab containing information about the media assets, e.g. 'media assets'
 - **Title of tab with events**: the name of the tab containing information about the events, e.g. 'events'
-- **Title of column used for chronolocation**: within the media assets tab, name of the column used to locate assets on the timeline, e.g. 'Chronolocation (YYYY-MM-DD HH:MM:SS)'
-- **Title of column used for duration**: within the media assets tab, name of the column used to draw the duration of assets on the timeline, e.g. 'Asset duration (HH:MM:SS)'
+- **Title of column used for chronolocation**: within the media assets tab, name of the column used to locate assets on the timeline, e.g. 'Start'. Use `YYYY-MM-DDTHH:mm:ss.SSS` values such as `2001-09-11T09:00:00.125`; the final three digits are milliseconds
+- **Duration**: derived from video metadata and displayed as `HH:mm:ss.SSS`; no duration column is required in the media data.
 - **Title of column used for latitude**: within the media assets tab, name of the column with latitude used to locate assets on the map, e.g. 'Latitude (decimal)'
 - **Title of column used for longitude**: within the media assets tab, name of the column with longitude used to locate assets on the map, e.g. 'Longitude (decimal)'
 - **Title of column used for url**: within the media assets tab, if 'Source of media files' set to 'url, name of the column with the link to the media file
@@ -228,3 +228,7 @@ Disclaimer: We won't be able to troubleshoot with all Codec users directly. We e
 ## Contributing
 
 If you are interested in contributing, thank you! Please take a look at the issues for bugs, enhancements etc to see what would be most helpful. Then fork the repo, create a pull request and we will integrate as soon as possible. Examples of useful contributions include: synced media playback, display of images and other media types, flexibility to use other spreadsheet sources such as Excel or OneDrive.
+
+### Millisecond precision
+
+Use `YYYY-MM-DDTHH:mm:ss.SSS` for timeline bounds, media `Start` values, and event timestamps. Keep timestamps without a timezone suffix to preserve the platform?s existing clock-time convention. Whole-second timestamps remain supported. The event timestamp header is `Datetime (yyyy-mm-dd hh:mm:ss.sss)`; the older header without `.sss` also works. Video durations are rounded to the nearest millisecond for display and timeline placement.

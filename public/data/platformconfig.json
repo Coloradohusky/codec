@@ -1,6 +1,6 @@
 {
-  "Timeline begin datetime": "2001-09-11 08:00:00",
-  "Timeline end datetime": "2001-09-11 11:00:00",
+  "Timeline begin datetime": "2001-09-11T08:00:00.000",
+  "Timeline end datetime": "2001-09-11T11:00:00.000",
 
   "Source of media files": "url",
 

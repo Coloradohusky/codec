@@ -247,6 +247,7 @@
       hour: "numeric",
       minute: "numeric",
       second: "numeric",
+      fractionalSecondDigits: 3,
     };
     const dateFormatter = new Intl.DateTimeFormat("en-UK", dateOptions);
     const dateAsFormattedString = dateFormatter.format(date);

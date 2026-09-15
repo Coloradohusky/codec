@@ -78,7 +78,10 @@
 
       // date time string to datetime object
       event.start_date_time = localtoUTCdatetimeobj(
-        new Date(event["datetime (yyyy-mm-dd hh:mm:ss)"]),
+        new Date(
+          event["datetime (yyyy-mm-dd hh:mm:ss.sss)"] ??
+            event["datetime (yyyy-mm-dd hh:mm:ss)"],
+        ),
       );
       // create 10 second block for each event
       event.end_date_time = new Date(event.start_date_time.getTime() + 10000);
@@ -142,14 +145,16 @@
   }
 
   function format_duration(seconds) {
-    const total = Math.floor(seconds);
-    return [
+    const milliseconds = Math.round(seconds * 1000);
+    const total = Math.floor(milliseconds / 1000);
+    const time = [
       Math.floor(total / 3600),
       Math.floor((total % 3600) / 60),
       total % 60,
     ]
       .map((value) => String(value).padStart(2, "0"))
       .join(":");
+    return `${time}.${String(milliseconds % 1000).padStart(3, "0")}`;
   }
 
   async function process_video_sheet_response(rows) {
@@ -207,7 +212,7 @@
             video[$platform_config_store["Title of column used for url"]];
 
           const duration_column =
-            $platform_config_store["Title of column used for duration"];
+            $platform_config_store["Title of column used for duration"] ?? "Duration";
           const start_value =
             video[$platform_config_store["Title of column used for chronolocation"]];
           const source = $platform_config_store["Source of media files"].includes("local")
@@ -225,7 +230,7 @@
 
               if (start_value) {
                 video.start = localtoUTCdatetimeobj(new Date(start_value));
-                video.end_date_time = video.start.getTime() + seconds * 1000;
+                video.end_date_time = video.start.getTime() + Math.round(seconds * 1000);
                 video.end = video.end_date_time;
                 video.times = [{
                   starting_time: video.start.getTime(),

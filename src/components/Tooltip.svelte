@@ -16,6 +16,7 @@
         hour: "numeric",
         minute: "numeric",
         second: "numeric",
+        fractionalSecondDigits: 3,
       };
       const dateFormatter = new Intl.DateTimeFormat("en-UK", dateOptions);
       try {
@@ -62,11 +63,7 @@
     </tr>
     <tr>
       <td>duration</td>
-      <td
-        >{hovered_media[
-          $platform_config_store["Title of column used for duration"]
-        ]}</td
-      >
+      <td>{hovered_media.duration}</td>
     </tr>
     <tr>
       <td>date</td>

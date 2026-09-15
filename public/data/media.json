@@ -2,21 +2,21 @@
   ["UAR", "Start", "Latitude", "Longitude", "URL"],
   [
     "CNN01",
-    "2001-09-11T07:00:00",
+    "2001-09-11T07:00:00.000",
     "0",
     "0",
     "https://archive.org/download/CNN_20010911_110000_CNN_Live_at_Daybreak/CNN_20010911_110000_CNN_Live_at_Daybreak.mp4"
   ],
   [
     "CNN02",
-    "2001-09-11T09:00:00",
+    "2001-09-11T09:00:00.000",
     "0",
     "0",
     "https://archive.org/download/CNN_20010911_130000_CNN_Live_This_Morning/CNN_20010911_130000_CNN_Live_This_Morning.mp4"
   ],
   [
     "SamRiegel1",
-    "2001-09-11T09:00:00",
+    "2001-09-11T09:00:00.000",
     "0",
     "0",
     "https://archive.org/download/SamRiegel_clip1avi/Sam%20Riegel_clip%201.mp4"

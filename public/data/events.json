@@ -1,3 +1,3 @@
 [
-  ["Event", "Datetime (yyyy-mm-dd hh:mm:ss)"]
+  ["Event", "Datetime (yyyy-mm-dd hh:mm:ss.sss)"]
 ]
