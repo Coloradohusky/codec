@@ -258,3 +258,11 @@ Unsaved drafts and their history are stored in this browser's local storage and 
 Save checks the file revision and refuses to overwrite external changes. Failed saves keep the draft. The local server validates timestamp-only changes, stages file replacements, and uses a recovery journal to roll back incomplete two-file saves. It listens on all IPv4 interfaces, matching the original development server, so you can also use `http://<your-Tailscale-IP>:8080`. Host validation accepts localhost and the interface IP used for the connection; saves retain same-origin checks. Devices that can reach this server can edit project timestamps. Set `HOST=127.0.0.1` to restrict it to localhost. Static/Netlify deployments can display data and hold drafts, but writing project files requires this local server.
 
 Run `npm test` for the editor persistence, save endpoint, and playback tests. The Node server and tests require a modern Node version (Node 18 or later) and add no runtime dependencies.
+
+### Playback inspection
+
+The shared controls offer 0.25x, 0.5x, 1x, 1.5x, 2x, and 4x playback, plus **-1 sec / +1 sec** seeking. Speed changes preserve the current position and apply to every open video.
+
+Each video shows its presented frame's source-relative timecode when the browser supports video frame callbacks; otherwise it shows an approximate playback time. Enter that source's **FPS for stepping** to enable **Previous frame / Next frame** and a one-based approximate frame number. An optional `FPS` column in `media.json` supplies the initial value; changing the FPS input only affects the open player and is not saved to the file.
+
+Frame stepping pauses the shared clock and aligns all feeds to a point inside the neighboring frame of the chosen source. This is FPS-based time seeking, not guaranteed frame-accurate decoding; variable-frame-rate files or incorrect FPS values may repeat or skip frames. No frame rate is assumed when it is unknown.
