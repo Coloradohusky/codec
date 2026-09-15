@@ -5,7 +5,6 @@
   "Source of media files": "url",
 
   "Title of column used for chronolocation": "Start",
-  "Title of column used for duration": "Duration",
   "Title of column used for latitude": "Latitude",
   "Title of column used for longitude": "Longitude",
   "Title of column used for url": "URL"

@@ -8,6 +8,7 @@
   import FilterPanel from "./components/modules/FilterPanel.svelte";
   import {
     media_store,
+    local_file_store,
     events_store,
     ui_store,
     filter_toggles,
@@ -54,7 +55,7 @@
       loadJson("/data/events.json"),
     ]);
   
-    process_video_sheet_response(media);
+    await process_video_sheet_response(media);
     process_event_sheet_response(events);
   }
 
@@ -97,129 +98,172 @@
     }
   }
 
-  function process_video_sheet_response(rows) {
+  // Cache promises so refreshes share pending loads as well as finished results.
+  const duration_cache = new Map();
+
+  function read_video_duration(source) {
+    if (!duration_cache.has(source)) {
+      const duration = new Promise((resolve, reject) => {
+        const element = document.createElement("video");
+        const url = source instanceof File ? URL.createObjectURL(source) : source;
+        const timeout = setTimeout(
+          () => finish(new Error("Video metadata timed out")),
+          30000,
+        );
+
+        function finish(error, seconds) {
+          clearTimeout(timeout);
+          element.onloadedmetadata = null;
+          element.onerror = null;
+          element.removeAttribute("src");
+          element.load();
+          if (source instanceof File) URL.revokeObjectURL(url);
+          if (error) reject(error);
+          else resolve(seconds);
+        }
+
+        element.preload = "metadata";
+        element.onloadedmetadata = () => {
+          const seconds = element.duration;
+          if (Number.isFinite(seconds) && seconds >= 0) {
+            finish(null, seconds);
+          } else {
+            finish(new Error("Video has no finite duration"));
+          }
+        };
+        element.onerror = () => finish(new Error("Could not load video metadata"));
+        element.src = url;
+      });
+      duration_cache.set(source, duration);
+      // Allow failed loads to be retried on the next refresh.
+      duration.catch(() => duration_cache.delete(source));
+    }
+    return duration_cache.get(source);
+  }
+
+  function format_duration(seconds) {
+    const total = Math.floor(seconds);
+    return [
+      Math.floor(total / 3600),
+      Math.floor((total % 3600) / 60),
+      total % 60,
+    ]
+      .map((value) => String(value).padStart(2, "0"))
+      .join(":");
+  }
+
+  async function process_video_sheet_response(rows) {
     // first row of table is column names
     const column_names = rows[0];
     // create array to feed data as being processed
     const new_videos = {};
 
     // for every row (skipping the first row of column names)
-    rows.slice(1).forEach((row, r) => {
-      try {
-        // create a video object
-        const video = {};
-        // for each column in row
-        row.forEach((col_value, i) => {
-          // assign the new object the column value under the correct key
+    await Promise.all(
+      rows.slice(1).map(async (row, r) => {
+        try {
+          // create a video object
+          const video = {};
+          // for each column in row
+          row.forEach((col_value, i) => {
+            // assign the new object the column value under the correct key
 
-          // if the col value a string boolean
-          if (col_value === "TRUE" || col_value === "FALSE") {
-            // transform string boolean to actual boolean
-            video[column_names[i]] = col_value === "TRUE";
-            // if boolean not already in filter_toggles (only need to do once on first row)
-            // and checkig if already in there prevents from re-adding + resetting to false
-            // at every sheet fetch
-            if (
-              (r === 0 || r === 1) &&
-              !Object.keys($filter_toggles).includes(column_names[i])
-            ) {
-              $filter_toggles[column_names[i]] = false;
+            // if the col value a string boolean
+            if (col_value === "TRUE" || col_value === "FALSE") {
+              // transform string boolean to actual boolean
+              video[column_names[i]] = col_value === "TRUE";
+              // if boolean not already in filter_toggles (only need to do once on first row)
+              // and checkig if already in there prevents from re-adding + resetting to false
+              // at every sheet fetch
+              if (
+                (r === 0 || r === 1) &&
+                !Object.keys($filter_toggles).includes(column_names[i])
+              ) {
+                $filter_toggles[column_names[i]] = false;
+              }
+            } else {
+              video[column_names[i]] = col_value;
             }
-          } else {
-            video[column_names[i]] = col_value;
-          }
-        });
+          });
 
-        // properties for map
-        if (
-          video[$platform_config_store["Title of column used for latitude"]] &&
-          video[$platform_config_store["Title of column used for longitude"]]
-        ) {
-          video.lat = parseFloat(
-            video[$platform_config_store["Title of column used for latitude"]],
-          );
-          video.long = parseFloat(
-            video[$platform_config_store["Title of column used for longitude"]],
-          );
-        }
-
-        // properties for timeline
-        video.type = "range";
-        video.label = video.UAR;
-        video.id = video.UAR;
-        video.url =
-          video[$platform_config_store["Title of column used for url"]];
-
-        // date time string to datetime object
-        if (
-          video[
-            $platform_config_store["Title of column used for chronolocation"]
-          ] &&
-          video[$platform_config_store["Title of column used for duration"]]
-        ) {
-          try {
-            video.duration =
-              video[
-                $platform_config_store["Title of column used for duration"]
-              ];
-            video.start = localtoUTCdatetimeobj(
-              new Date(
-                video[
-                  $platform_config_store[
-                    "Title of column used for chronolocation"
-                  ]
-                ],
-              ),
+          // properties for map
+          if (
+            video[$platform_config_store["Title of column used for latitude"]] &&
+            video[$platform_config_store["Title of column used for longitude"]]
+          ) {
+            video.lat = parseFloat(
+              video[$platform_config_store["Title of column used for latitude"]],
             );
-            const [length_hours, length_minutes, length_seconds] =
-              video[
-                $platform_config_store["Title of column used for duration"]
-              ].split(":");
-            video.end_date_time =
-              new Date(video.start).getTime() +
-              length_hours * 60 * 60 * 1000 +
-              length_minutes * 60 * 1000 +
-              length_seconds * 1000;
-            video.times = [
-              {
-                starting_time: new Date(video.start).getTime(),
-                ending_time: new Date(video.end_date_time).getTime(),
-              },
-            ];
-
-            video.end = video.end_date_time;
-          } catch {
-            console.log("conversion to datetime failed");
-            return;
+            video.long = parseFloat(
+              video[$platform_config_store["Title of column used for longitude"]],
+            );
           }
+
+          // properties for timeline
+          video.type = "range";
+          video.label = video.UAR;
+          video.id = video.UAR;
+          video.url =
+            video[$platform_config_store["Title of column used for url"]];
+
+          const duration_column =
+            $platform_config_store["Title of column used for duration"];
+          const start_value =
+            video[$platform_config_store["Title of column used for chronolocation"]];
+          const source = $platform_config_store["Source of media files"].includes("local")
+            ? $local_file_store[video.UAR]
+            : video.url;
+
+          // Never use the manually entered duration, even if metadata is unavailable.
+          video[duration_column] = "";
+          video.duration = "";
+          if (source) {
+            try {
+              const seconds = await read_video_duration(source);
+              video.duration = format_duration(seconds);
+              video[duration_column] = video.duration;
+
+              if (start_value) {
+                video.start = localtoUTCdatetimeobj(new Date(start_value));
+                video.end_date_time = video.start.getTime() + seconds * 1000;
+                video.end = video.end_date_time;
+                video.times = [{
+                  starting_time: video.start.getTime(),
+                  ending_time: video.end_date_time,
+                }];
+              }
+            } catch (error) {
+              console.warn(`Could not read duration for ${video.UAR}`, error);
+            }
+          }
+
+          // // properties for filter
+          // Object.entries($filter_toggles).forEach((pair) => {
+          //   let [toggle, value] = pair;
+          //   if (typeof value === "object") {
+          //     let responses = video[toggle];
+          //     if (responses == undefined) return;
+          //     responses = responses.replaceAll(" ", "");
+          //     responses
+          //       .split(",")
+          //       .filter((response) => {eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
+          //         return !["", " ", "NULL"].includes(response);
+          //       })
+          //       .forEach((response) => {
+          //         if (!Object.keys(value).includes(response)) {
+          //           value[response] = false;
+          //         }
+          //       });
+          //   }
+          //   $filter_toggles[toggle] = value;
+          // });
+
+          new_videos[video.UAR] = video;
+        } catch (error) {
+          console.log(error);
         }
-
-        // // properties for filter
-        // Object.entries($filter_toggles).forEach((pair) => {
-        //   let [toggle, value] = pair;
-        //   if (typeof value === "object") {
-        //     let responses = video[toggle];
-        //     if (responses == undefined) return;
-        //     responses = responses.replaceAll(" ", "");
-        //     responses
-        //       .split(",")
-        //       .filter((response) => {eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee
-        //         return !["", " ", "NULL"].includes(response);
-        //       })
-        //       .forEach((response) => {
-        //         if (!Object.keys(value).includes(response)) {
-        //           value[response] = false;
-        //         }
-        //       });
-        //   }
-        //   $filter_toggles[toggle] = value;
-        // });
-
-        new_videos[video.UAR] = video;
-      } catch (error) {
-        console.log(error);
-      }
-    });
+      }),
+    );
 
     if (JSON.stringify($media_store) !== JSON.stringify(new_videos)) {
       $media_store = new_videos;
