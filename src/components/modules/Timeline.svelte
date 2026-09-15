@@ -8,6 +8,11 @@
   import { DataSet, DataView, Timeline, moment } from "vis-timeline/standalone";
   // import "vis-timeline/styles/vis-timeline-graph2d.css";
 
+  import {
+    playback_store,
+    seek_playback,
+    set_playback_bounds,
+  } from "../../stores/playback";
   import { onMount } from "svelte";
 
   let videos, items, container, main_timeline, timeBegin, timeEnd;
@@ -21,7 +26,14 @@
     );
   }
 
+  $: set_playback_bounds(timeBegin.getTime(), timeEnd.getTime());
+
+  $: if (main_timeline && $playback_store.time !== null) {
+    main_timeline.setCustomTime(new Date($playback_store.time), "current_time_line");
+  }
+
   function update_timeline_clicked_hovered() {
+    if (!main_timeline) return;
     // match timeline's clicked/unclicked items with ui_store
     // get list of html elements that are shown as clicked, get their UAR
     let clicked_timeline_els = [
@@ -191,9 +203,13 @@
 
     // add current time line
     main_timeline.addCustomTime(
-      timeBegin.getTime() / 2 + timeEnd.getTime() / 2,
+      new Date($playback_store.time),
       "current_time_line",
     );
+
+    main_timeline.on("timechange", (properties) => {
+      if (properties.id === "current_time_line") seek_playback(properties.time.getTime());
+    });
 
     main_timeline.on("mouseOver", (properties) => {
       if (properties.customTime !== null) {
@@ -211,23 +227,15 @@
         }
       }
     });
+
+    return () => {
+      main_timeline.destroy();
+      main_timeline = null;
+    };
   });
 
   function updateCurrentTimeToMatchTimeline(properties) {
-    let current_time = new Date(
-      (properties.start.getTime() + properties.end.getTime()) / 2,
-    );
-    // make sure offset from utc is accounted for
-    // current_time.setHours(
-    //   current_time.getHours() -
-    //     utcstring2int($platform_config_store["Local GMT offset ([+-]HH:MM)"])
-    // );
-    main_timeline.removeCustomTime("current_time_line");
-    main_timeline.addCustomTime(current_time, "current_time_line");
-
-    let current_time_line =
-      main_timeline.customTimes[main_timeline.customTimes.length - 1];
-    current_time_line.hammer.off("panstart panmove panend");
+    seek_playback((+properties.start + +properties.end) / 2);
   }
 
   function date2month_day(date) {
@@ -343,6 +351,7 @@
       }
 
       .vis-custom-time.current_time_line {
+        cursor: ew-resize;
         background-color: #d90c1e;
         width: 5px;
         opacity: 0.5;
