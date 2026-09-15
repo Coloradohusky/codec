@@ -86,6 +86,12 @@ function create_editor_server(root = path.resolve(__dirname, "..")) {
 
   const mime = { ".html": "text/html", ".js": "text/javascript", ".css": "text/css", ".json": "application/json", ".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg", ".ico": "image/x-icon" };
   return http.createServer(async (req, res) => {
+    const started = performance.now();
+    res.once("finish", () => {
+      const elapsed = (performance.now() - started).toFixed(1);
+      console.log(`${req.method} ${req.url} ${res.statusCode} ${elapsed} ms`);
+    });
+
     const json = (status, value) => {
       res.writeHead(status, { "Content-Type": "application/json", "Cache-Control": "no-store" });
       res.end(JSON.stringify(value));
