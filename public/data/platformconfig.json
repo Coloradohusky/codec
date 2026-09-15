@@ -1,0 +1,12 @@
+{
+  "Timeline begin datetime": "2001-09-11 08:00:00",
+  "Timeline end datetime": "2001-09-11 11:00:00",
+
+  "Source of media files": "url",
+
+  "Title of column used for chronolocation": "Start",
+  "Title of column used for duration": "Duration",
+  "Title of column used for latitude": "Latitude",
+  "Title of column used for longitude": "Longitude",
+  "Title of column used for url": "URL"
+}
