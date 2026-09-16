@@ -1,4 +1,5 @@
 <script>
+  import JsonEditor from "./JsonEditor.svelte";
   import { editor_store, event_time_column } from "../../stores/editor";
   import { platform_config_store } from "../../stores/store";
   import { pause_playback } from "../../stores/playback";
@@ -41,15 +42,15 @@
     {$editor_store.editing ? "Finish editing" : "Edit timeline"}
   </button>
   {#if $editor_store.editing || $editor_store.dirty}
-    <button on:click={() => editor_store.undo()} disabled={!$editor_store.past.length || $editor_store.saving}>Undo</button>
-    <button on:click={() => editor_store.redo()} disabled={!$editor_store.future.length || $editor_store.saving}>Redo</button>
+    <button on:click={() => editor_store.undo()} disabled={!!$editor_store.json_text || !$editor_store.past.length || $editor_store.saving}>Undo</button>
+    <button on:click={() => editor_store.redo()} disabled={!!$editor_store.json_text || !$editor_store.future.length || $editor_store.saving}>Redo</button>
     <button on:click={() => editor_store.save()} disabled={!$editor_store.dirty || $editor_store.saving || $editor_store.conflict}>
       {$editor_store.saving ? "Saving..." : "Save"}
     </button>
     <button on:click={() => editor_store.discard()} disabled={(!$editor_store.dirty && !$editor_store.conflict) || $editor_store.saving}>Discard</button>
     <span>{$editor_store.dirty ? "Unsaved changes" : "Saved"}</span>
   {/if}
-  {#if $editor_store.editing && rows}
+  {#if $editor_store.editing && rows && !$editor_store.json_text}
     <span>Drag videos or event markers. Shift snaps to seconds.</span>
     <div class="details">
       <select bind:value={selected} aria-label="Record to align" disabled={$editor_store.saving}>
@@ -70,6 +71,7 @@
       {/if}
     </div>
   {/if}
+  <JsonEditor />
   {#if $editor_store.conflict}
     <p role="alert">Files changed on disk. Your draft is preserved. Discard loads the latest saved files.</p>
   {/if}

@@ -1,4 +1,5 @@
 import { writable } from "svelte/store";
+import { validate_files } from "../../shared/data.cjs";
 
 const copy = (value) => JSON.parse(JSON.stringify(value));
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
@@ -6,15 +7,16 @@ const storage_key = "codec-timeline-draft-v1";
 
 export function create_editor(storage) {
   let state = {
-    base: null, draft: null, revision: null, editing: false,
+    base: null, draft: null, json_text: null, revision: null, editing: false,
     past: [], future: [], dirty: false, saving: false,
     conflict: false, error: "", warning: storage ? "" : "Browser storage is unavailable. Keep this tab open until you save.", epoch: 0,
   };
   let latest;
+  let config = {};
   try {
     const saved = JSON.parse(storage?.getItem(storage_key) || "null");
     if (saved?.base && saved?.draft && Array.isArray(saved.draft.media) && Array.isArray(saved.draft.events)) {
-      state = { ...state, ...saved, editing: true, dirty: !same(saved.base, saved.draft) };
+      state = { ...state, ...saved, editing: true, dirty: !!saved.json_text || !same(saved.base, saved.draft) };
     }
   } catch {
     state.warning = "Could not restore the browser draft.";
@@ -23,11 +25,11 @@ export function create_editor(storage) {
 
   function publish(changes, persist = false) {
     state = { ...state, ...changes };
-    state.dirty = state.base !== null && !same(state.base, state.draft);
+    state.dirty = !!state.json_text || (state.base !== null && !same(state.base, state.draft));
     if (persist) {
       try {
         if (state.dirty) storage?.setItem(storage_key, JSON.stringify({
-          base: state.base, draft: state.draft, revision: state.revision,
+          base: state.base, draft: state.draft, json_text: state.json_text, revision: state.revision,
           past: state.past, future: state.future,
         }));
         else storage?.removeItem(storage_key);
@@ -50,7 +52,7 @@ export function create_editor(storage) {
   }
 
   function move(kind, row, column, time) {
-    if (!state.editing || state.saving || !Number.isFinite(time) || column < 0) return;
+    if (!state.editing || state.saving || state.json_text || !Number.isFinite(time) || column < 0) return;
     if (!state.draft?.[kind]?.[row] || row === 0) return;
     const value = new Date(time).toISOString().slice(0, 23);
     if (state.draft[kind][row][column] === value) return;
@@ -60,12 +62,12 @@ export function create_editor(storage) {
   }
 
   function undo() {
-    if (state.saving || !state.past.length) return;
+    if (state.saving || state.json_text || !state.past.length) return;
     publish({ draft: state.past.at(-1), past: state.past.slice(0, -1), future: [state.draft, ...state.future], error: "" }, true);
   }
 
   function redo() {
-    if (state.saving || !state.future.length) return;
+    if (state.saving || state.json_text || !state.future.length) return;
     publish({ draft: state.future[0], past: [...state.past, state.draft], future: state.future.slice(1), error: "" }, true);
   }
 
@@ -79,7 +81,7 @@ export function create_editor(storage) {
       } else if (response.status !== 404) {
         throw new Error("Could not reload saved files. Your draft is intact.");
       }
-      publish({ base: copy(latest.files), draft: copy(latest.files), revision: latest.revision, past: [], future: [], conflict: false, error: "" }, true);
+      publish({ base: copy(latest.files), draft: copy(latest.files), json_text: null, revision: latest.revision, past: [], future: [], conflict: false, error: "" }, true);
     } catch (error) {
       publish({ error: error.message });
     } finally {
@@ -87,8 +89,23 @@ export function create_editor(storage) {
     }
   }
 
+  function apply_json() {
+    if (state.saving) return false;
+    if (!state.json_text) return true;
+    try {
+      const draft = copy(state.draft);
+      for (const [name, text] of Object.entries(state.json_text)) draft[name] = JSON.parse(text);
+      validate_files(draft, config);
+      publish({ draft, json_text: null, past: same(draft, state.draft) ? state.past : [...state.past.slice(-99), state.draft], future: [], error: "" }, true);
+      return true;
+    } catch (error) {
+      publish({ error: error.message });
+      return false;
+    }
+  }
+
   async function save() {
-    if (state.saving || !state.dirty) return;
+    if (state.saving || !state.dirty || !apply_json()) return;
     publish({ saving: true, error: "", epoch: state.epoch + 1 });
     try {
       const response = await fetch("/api/data", {
@@ -111,7 +128,13 @@ export function create_editor(storage) {
   }
 
   return {
-    subscribe: store.subscribe, receive, move, undo, redo, discard, save,
+    subscribe: store.subscribe, receive, move, undo, redo, discard, save, apply_json,
+    configure(value) { config = value; },
+    set_json_text(name, text) {
+      if (state.saving || !["media", "events"].includes(name)) return;
+      publish({ json_text: { ...state.json_text, [name]: text }, editing: true, error: "" }, true);
+    },
+    reset_json() { if (!state.saving) publish({ json_text: null, error: "" }, true); },
     set_editing(editing) { if (!state.saving) publish({ editing }); },
   };
 }

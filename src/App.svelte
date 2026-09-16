@@ -61,6 +61,7 @@
   
     const platform_config = await loadJson("/data/platformconfig.json");
     $platform_config_store = platform_config;
+    editor_store.configure(platform_config);
   
     const response = await fetch("/api/data", { cache: "no-store" });
     if (response.ok && response.headers.get("content-type")?.includes("application/json")) {
@@ -290,6 +291,7 @@
 
     if (version === processing_version && JSON.stringify($media_store) !== JSON.stringify(new_videos)) {
       $media_store = new_videos;
+      $ui_store.media_in_view = $ui_store.media_in_view.filter((id) => new_videos[id]);
     }
   }
 

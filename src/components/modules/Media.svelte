@@ -46,7 +46,9 @@
 <div class="media">
   <!-- add (UAR) means it's a keyed each block, svelte tracks better -->
   {#each $ui_store.media_in_view as UAR (UAR)}
-    <Module module={"media"} medium={$media_store[UAR]} />
+    {#if $media_store[UAR]}
+      <Module module={"media"} medium={$media_store[UAR]} />
+    {/if}
   {/each}
 </div>
 

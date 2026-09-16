@@ -40,11 +40,11 @@
   }
 
   $: if (main_timeline) {
-    main_timeline.setOptions({ editable: { updateTime: $editor_store.editing && !$editor_store.saving, add: false, remove: false, updateGroup: false } });
+    main_timeline.setOptions({ editable: { updateTime: $editor_store.editing && !$editor_store.saving && !$editor_store.json_text, add: false, remove: false, updateGroup: false } });
   }
 
   function align_video(item, callback, commit) {
-    if (!$editor_store.editing || $editor_store.saving) return callback(null);
+    if (!$editor_store.editing || $editor_store.saving || $editor_store.json_text) return callback(null);
     const original = $media_store_filtered[item.id];
     const start = +snap_time(item.start);
     item.start = new Date(start);
@@ -237,14 +237,14 @@
     main_timeline.on("timechange", (properties) => {
       if (properties.id === "current_time_line") {
         seek_playback(+snap_time(properties.time));
-      } else if (!$editor_store.editing || $editor_store.saving) {
+      } else if (!$editor_store.editing || $editor_store.saving || $editor_store.json_text) {
         const event = $events_store.find((event) => event.id === properties.id);
         if (event) main_timeline.setCustomTime(event.start, event.id);
       }
     });
 
     main_timeline.on("timechanged", (properties) => {
-      if (properties.id === "current_time_line" || !$editor_store.editing || $editor_store.saving) return;
+      if (properties.id === "current_time_line" || !$editor_store.editing || $editor_store.saving || $editor_store.json_text) return;
       const row = $events_store.findIndex((event) => event.id === properties.id) + 1;
       editor_store.move("events", row, event_time_column($editor_store.draft.events), +snap_time(properties.time));
     });

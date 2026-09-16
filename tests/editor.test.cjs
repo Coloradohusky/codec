@@ -12,6 +12,7 @@ const files = () => ({
 
 function browser(storage = new Map()) {
   const context = vm.createContext({
+    validate_files: require("../shared/data.cjs").validate_files,
     writable: (initial) => {
       let value = initial;
       let subscriber = () => {};
@@ -21,7 +22,7 @@ function browser(storage = new Map()) {
     localStorage: { getItem: (key) => storage.get(key), setItem: (key, value) => storage.set(key, value), removeItem: (key) => storage.delete(key) },
   });
   const code = fs.readFileSync(path.join(__dirname, "../src/stores/editor.js"), "utf8")
-    .replace(/import[^;]+;/, "").replace(/export /g, "");
+    .replace(/import[^;]+;/g, "").replace(/export /g, "");
   vm.runInContext(code, context);
   const editor = vm.runInContext("editor_store", context);
   let state;
@@ -113,14 +114,14 @@ test("server saves both timestamps, preserves other fields, and rejects stale re
   assert.equal(fs.existsSync(path.join(f.root, ".codec-save-journal.json")), false);
 });
 
-test("server rejects invalid dates, unexpected changes, and cross-origin saves without writing", async (t) => {
+test("server rejects invalid dates, malformed rows, and cross-origin saves without writing", async (t) => {
   const f = await fixture(t);
   const original = await f.get();
   const malformed = structuredClone(original);
   malformed.files.media[1][1] = "2001-02-30T09:00:00.000";
   assert.equal((await f.put(malformed)).status, 400);
   const changed_url = structuredClone(original);
-  changed_url.files.media[1][2] = "changed";
+  changed_url.files.media[1].push("extra cell");
   assert.equal((await f.put(changed_url)).status, 400);
   assert.equal((await f.put(original, { origin: "https://example.com" })).status, 403);
   assert.equal((await f.get()).revision, original.revision);
@@ -192,4 +193,58 @@ test("host validation accepts the connected Tailscale interface and rejects unre
   assert.equal(allowed_host("attacker.example:8080", "100.90.80.70", 8080), false);
   assert.equal(allowed_host("100.90.80.71:8080", "100.90.80.70", 8080), false);
   assert.equal(allowed_host("100.90.80.70:9999", "100.90.80.70", 8080), false);
+});
+
+test("raw JSON survives reload, rejects invalid text, and applies as one undoable edit", async () => {
+  const b = browser();
+  b.editor.receive(first());
+  b.editor.set_json_text("events", "[");
+  const restored = browser(b.storage);
+  restored.editor.receive(first());
+  assert.equal(restored.state().json_text.events, "[");
+  await restored.editor.save();
+  assert.equal(restored.state().json_text.events, "[");
+  assert.equal(restored.state().dirty, true);
+  assert.notEqual(restored.state().error, "");
+  const events = files().events;
+  events.push(["New event", "2001-09-11T09:00:02.125"]);
+  restored.editor.set_json_text("events", JSON.stringify(events));
+  assert.equal(restored.editor.apply_json(), true);
+  assert.equal(restored.state().draft.events.length, 3);
+  assert.equal(restored.state().json_text, null);
+  restored.editor.undo();
+  assert.equal(restored.state().draft.events.length, 2);
+  restored.editor.redo();
+  assert.equal(restored.state().draft.events.length, 3);
+});
+
+test("Save applies pending JSON and sends edited records", async () => {
+  const b = browser();
+  b.editor.receive(first());
+  const media = files().media;
+  media[1][2] = "https://example.com/updated.mp4";
+  b.editor.set_json_text("media", JSON.stringify(media));
+  let sent;
+  b.context.fetch = async (url, options) => {
+    sent = JSON.parse(options.body);
+    return new Response(JSON.stringify({ files: sent.files, revision: "saved" }));
+  };
+  await b.editor.save();
+  assert.equal(sent.files.media[1][2], "https://example.com/updated.mp4");
+  assert.equal(b.state().dirty, false);
+});
+
+test("server accepts adding/removing records and changing non-timestamp fields", async (t) => {
+  const f = await fixture(t);
+  const snapshot = await f.get();
+  snapshot.files.media[1][2] = "https://example.com/updated.mp4";
+  snapshot.files.media.push(["b", "2001-09-11T09:01:00.125", "https://example.com/b.mp4"]);
+  snapshot.files.events = [snapshot.files.events[0]];
+  const response = await f.put(snapshot);
+  assert.equal(response.status, 200);
+  const saved = await response.json();
+  assert.equal(saved.files.media.length, 3);
+  assert.equal(saved.files.events.length, 1);
+  saved.files.media[2][0] = "a";
+  assert.equal((await f.put(saved)).status, 400);
 });

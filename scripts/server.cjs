@@ -2,6 +2,7 @@ const http = require("node:http");
 const fs = require("node:fs");
 const path = require("node:path");
 const crypto = require("node:crypto");
+const { validate_files } = require("../shared/data.cjs");
 
 function allowed_host(host, address, port) {
   // Accept the interface used for this connection, including Tailscale.
@@ -43,31 +44,11 @@ function create_editor_server(root = path.resolve(__dirname, "..")) {
     };
   }
 
-  function valid_timestamp(value) {
-    if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d{3}$/.test(value)) return false;
-    const time = new Date(`${value}Z`);
-    return Number.isFinite(+time) && time.toISOString() === `${value}Z`;
-  }
-
   function save(body) {
     const current = snapshot();
     if (body.revision !== current.data.revision) throw fail(409, "Files changed on disk. Your draft is intact. Discard it to load the latest files before editing again.");
-    if (!body.files || Object.keys(body.files).sort().join() !== "events,media") throw fail(400, "Expected media and events data.");
-    for (const name of names) {
-      const before = current.data.files[name];
-      const after = body.files[name];
-      const column = name === "media"
-        ? before[0].indexOf(current.config["Title of column used for chronolocation"])
-        : before[0].findIndex((title) => /^datetime \(yyyy-mm-dd hh:mm:ss(?:\.sss)?\)$/i.test(title));
-      if (column < 0 || !Array.isArray(after) || after.length !== before.length || JSON.stringify(after[0]) !== JSON.stringify(before[0])) throw fail(400, "The editor can only change existing timestamps.");
-      for (let row = 1; row < before.length; row++) {
-        if (!Array.isArray(after[row]) || after[row].length !== before[row].length) throw fail(400, "Invalid row.");
-        for (let cell = 0; cell < before[row].length; cell++) {
-          if (JSON.stringify(after[row][cell]) === JSON.stringify(before[row][cell])) continue;
-          if (cell !== column || !valid_timestamp(after[row][cell])) throw fail(400, "Only valid timestamp changes are allowed.");
-        }
-      }
-    }
+    try { validate_files(body.files, current.config); }
+    catch (error) { throw fail(400, error.message); }
     fs.writeFileSync(journal, JSON.stringify(current.original), { flag: "wx" });
     try {
       for (const name of names) {
