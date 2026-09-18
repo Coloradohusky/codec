@@ -237,13 +237,17 @@
           const source = $platform_config_store["Source of media files"].includes("local")
             ? local_files[video.UAR]
             : video.url;
+          video.is_image = /\.(png|jpe?g|webp)(?:[?#]|$)/i.test(
+            source instanceof File ? source.name : source || "",
+          );
 
           // Never use the manually entered duration, even if metadata is unavailable.
           video[duration_column] = "";
           video.duration = "";
           if (source) {
             try {
-              const seconds = await read_video_duration(source);
+              // Give still photos a visible timeline range without video metadata.
+              const seconds = video.is_image ? 1 : await read_video_duration(source);
               video.duration = format_duration(seconds);
               video[duration_column] = video.duration;
 

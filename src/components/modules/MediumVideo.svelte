@@ -137,7 +137,11 @@
 </script>
 
 {#if src !== null}
-  {#if used_filepath.toLowerCase().includes("mp4") || used_filepath
+  {#if medium.is_image}
+    <div class="medium_image" id={medium.id}>
+      <img {src} alt={medium.UAR} />
+    </div>
+  {:else if used_filepath.toLowerCase().includes("mp4") || used_filepath
       .toLowerCase()
       .includes("mov") || used_filepath
       .toLowerCase()
@@ -183,11 +187,6 @@
       <button on:click={() => step_frame(-1)} disabled={!valid_frame_rate || frame_time === null || unavailable || frame_seeking || $editor_store.saving}>Previous frame</button>
       <button on:click={() => step_frame(1)} disabled={!valid_frame_rate || frame_time === null || unavailable || frame_seeking || $editor_store.saving}>Next frame</button>
       <small>FPS-based steps pause and seek all feeds. Variable-frame-rate footage may skip or repeat frames.</small>
-    </div>
-  {:else if used_filepath.includes("png") || used_filepath.includes("jpeg") || used_filepath.includes("jpg") || used_filepath.includes("webp")}
-    <div class="medium_image" id={medium.id}>
-      <!-- svelte-ignore a11y-missing-attribute -->
-      <img {src} />
     </div>
   {/if}
 {/if}
